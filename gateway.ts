@@ -13,6 +13,9 @@ const keys = new Set((JSON.parse(await Bun.file(KEYS_FILE).text())).map((k:any)=
 const hits = new Map<string, number[]>();
 Bun.serve({ port: PORT, hostname: "127.0.0.1", async fetch(req) {
   const url = new URL(req.url);
+  // Tolerate sloppy base URLs (trailing slash in app config → //layout): collapse
+  // repeated slashes so prefix routing still matches.
+  url.pathname = url.pathname.replace(/\/{2,}/g, "/");
   if (url.pathname === "/healthz") return Response.json({ ok: true });
   const key = (req.headers.get("authorization") ?? "").replace(/^Bearer /, "");
   if (!keys.has(key)) return new Response("unauthorized", { status: 401 });
