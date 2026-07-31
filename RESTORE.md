@@ -115,5 +115,5 @@ curl -fsSL https://raw.githubusercontent.com/sypherin/neo-spark-restore-kit/mast
 systemctl --user restart llm-gateway
 ```
 
-Note: add `llama-embed:8091:/health` to the CHECKS line in `~/bin/spark-stack-guard.sh`
-so the guard watches it too. bge-m3 FP16 is ~1.2 GB — negligible next to the LLMs.
+The stack guard watches llama-embed out of the box (re-pull spark-stack-guard.sh if you
+installed an earlier version). bge-m3 FP16 is ~1.2 GB — negligible next to the LLMs.

@@ -10,7 +10,7 @@ set -u
 log() { echo "$*" | systemd-cat -t spark-guard -p "${2:-info}"; }
 
 # unit:port:health-path  (port empty = unit-only check)
-CHECKS="llama-gemma:8001:/health llama-surya2:8093:/health llama-vlm:8080:/health surya:8090:/healthz llm-gateway:8002:/healthz"
+CHECKS="llama-gemma:8001:/health llama-surya2:8093:/health llama-vlm:8080:/health llama-embed:8091:/health surya:8090:/healthz llm-gateway:8002:/healthz"
 
 for spec in $CHECKS; do
   unit="${spec%%:*}"; rest="${spec#*:}"; port="${rest%%:*}"; path="${rest#*:}"
