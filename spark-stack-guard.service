@@ -1,0 +1,6 @@
+[Unit]
+Description=Neo stack guard (checks + restarts the model services)
+
+[Service]
+Type=oneshot
+ExecStart=%h/bin/spark-stack-guard.sh

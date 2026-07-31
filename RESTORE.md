@@ -48,3 +48,25 @@ v1 torch pipeline and logs it. Force v1: `echo v1 > ~/surya/backend.flag` (no re
 TOK=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.config/deneb/config.json')))['token'])")
 curl -fsSL -H "Authorization: Bearer $TOK" https://deneb-engine.altronis.sg/artifact/surya-server.py -o ~/surya/server.py
 ```
+
+## Stack guard — survive reboots and crashes
+
+`spark-stack-guard.sh` (+ `.service` + `.timer`) checks every 2 minutes that all five
+services are enabled, active, and answering their health endpoints; restarts anything
+dead; enables anything that would not survive a reboot; enables linger. Slow model
+loads get a 10-minute warmup grace before an unresponsive-restart. Install:
+
+```bash
+mkdir -p ~/bin
+curl -fsSL https://raw.githubusercontent.com/sypherin/neo-spark-restore-kit/master/spark-stack-guard.sh -o ~/bin/spark-stack-guard.sh
+chmod +x ~/bin/spark-stack-guard.sh
+curl -fsSL https://raw.githubusercontent.com/sypherin/neo-spark-restore-kit/master/spark-stack-guard.service -o ~/.config/systemd/user/spark-stack-guard.service
+curl -fsSL https://raw.githubusercontent.com/sypherin/neo-spark-restore-kit/master/spark-stack-guard.timer -o ~/.config/systemd/user/spark-stack-guard.timer
+systemctl --user daemon-reload
+systemctl --user enable --now spark-stack-guard.timer
+~/bin/spark-stack-guard.sh          # run once now; then: journalctl --user -t spark-guard -n 20
+```
+
+Reboot survival checklist the guard enforces continuously: linger enabled, all five
+units `enabled`, everything restarted on failure (units already carry Restart=always/
+on-failure for crashes; the guard covers the stayed-down and never-enabled cases).
