@@ -1,6 +1,6 @@
 # Surya OCR restore — DGX Spark (`~/surya` wiped, surya.service crash-looping)
 
-Matches the "Private LLM on DGX Spark — Setup Guide" (SOL-DGX-CF), §6. The venv
+Matches the "Private LLM on DGX Spark — Setup Guide", §6. The venv
 (`~/surya-venv`) is a plain pip install and is almost certainly intact — the only thing
 missing is the `server.py` wrapper, which does NOT ship with the upstream surya package.
 
@@ -25,7 +25,7 @@ python3 -m venv ~/surya-venv
 
 ## Surya 2 GGUF — no rebuild needed, ever
 
-The v2 accelerator weights are a PUBLIC download (guide §6b), not something built on the box:
+The v2 accelerator weights are a PUBLIC download (guide §6b) — public Hugging Face repo, not something built on the box:
 
 ```bash
 ~/surya-venv/bin/hf download datalab-to/surya-ocr-2-gguf \

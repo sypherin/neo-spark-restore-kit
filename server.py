@@ -1,5 +1,5 @@
 """
-Surya layout + OCR HTTP server for cf-platform.
+Surya layout + OCR HTTP server — document-pipeline OCR service.
 
 Exposes:
 
@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI):
     log.info("surya HTTP server shutting down")
 
 
-app = FastAPI(title="cf-platform surya layout+OCR", lifespan=lifespan)
+app = FastAPI(title="surya layout+OCR", lifespan=lifespan)
 
 
 def _health_payload():
@@ -163,7 +163,7 @@ import urllib.request as _urlreq
 SURYA_BACKEND = os.environ.get("SURYA_BACKEND", "v1").strip().lower()
 # Hot-flip override: if this file exists its content ("v1"/"v2") wins over the
 # env var, checked per request — so switching backends is
-#   echo v2 > /home/awpapa/surya/backend.flag
+#   echo v2 > ~/surya/backend.flag
 # with NO container restart, and rollback is echo v1 (or rm the file).
 SURYA_BACKEND_FILE = os.environ.get("SURYA_BACKEND_FILE", os.path.expanduser("~/surya/backend.flag"))
 
@@ -202,12 +202,12 @@ SURYA2_REPEAT_PENALTY = float(os.environ.get("SURYA2_REPEAT_PENALTY", "1.15"))
 # v1 is the slow (~6 min) torch fallback being retired. If Surya 2 fails ALL its
 # passes (plain → repeat_penalty → DRY) and v1 kicks in, ping Zach so the silent
 # slow-path is never invisible. Best-effort + throttled; NEVER breaks OCR.
-_V1_ALERT_CHAT = os.environ.get("SURYA_ALERT_CHAT_ID", "8430134025")  # Zach
+_V1_ALERT_CHAT = os.environ.get("SURYA_ALERT_CHAT_ID", "")  # operator opt-in via env
 _last_v1_alert = [0.0]
 
 def _read_tg_token():
     try:
-        t = open(os.path.expanduser("~/.config/cf-docflow-watchdog/telegram-bot-token")).read().strip()
+        t = open(os.path.expanduser("~/.config/ocr-watchdog/telegram-bot-token")).read().strip()
         if t:
             return t
     except OSError:
@@ -230,7 +230,7 @@ def _alert_v1_activated(reason):
         if not tok:
             return
         _last_v1_alert[0] = _t.time()
-        msg = ("⚠️ SURYA 1 (v1 torch) ACTIVATED on cf-docflow OCR — Surya 2 "
+        msg = ("⚠️ SURYA 1 (v1 torch) ACTIVATED on document OCR — Surya 2 "
                "failed all passes (plain→repeat_penalty→DRY).\nReason: " + str(reason)[:170] +
                "\nThis is the slow path; the doc may DLQ. Check surya-only logs / re-test the doc.")
         data = _json.dumps({"chat_id": _V1_ALERT_CHAT, "text": msg}).encode()
@@ -536,7 +536,7 @@ def _surya2_logo_pass(tokens, pil_img):
 def layout(image: UploadFile = File(...)):
     # SYNC handler (2026-06-06): was `async def`, but the v2 path makes a
     # BLOCKING urllib call (up to SURYA2_TIMEOUT_S) inside it, which froze the
-    # event loop → /healthz starved for the whole OCR → cf-strix-watchdog saw
+    # event loop → /healthz starved for the whole OCR → the ops watchdog saw
     # "6 healthz fails + CPU idle" (GPU work lives in the llama-surya2 process,
     # so this container looked dead) and restarted us mid-batch. A sync def
     # runs in Starlette's threadpool, keeping the loop + healthz responsive.
@@ -679,7 +679,7 @@ def layout(image: UploadFile = File(...)):
         })
 
     # Also emit "Picture" / "Figure" regions that have NO text (logos, photos)
-    # — important for the cf-do-ocr UI's replica view, AND so the structurer
+    # — important for the pipeline UI's replica view, AND so the structurer
     # can see "there's a picture/letterhead region we couldn't OCR".
     for r in layout_regions:
         if r["type"] not in ("Picture", "Figure"):
