@@ -70,3 +70,50 @@ systemctl --user enable --now spark-stack-guard.timer
 Reboot survival checklist the guard enforces continuously: linger enabled, all five
 units `enabled`, everything restarted on failure (units already carry Restart=always/
 on-failure for crashes; the guard covers the stayed-down and never-enabled cases).
+
+## Embeddings service + full-stack health (the two routes the simple gateway lacked)
+
+**`/upstreams/health`** — an authed endpoint on the gateway that probes every backend
+(gemma, vlm, surya, surya2, embed) and returns one JSON scorecard. Apps and monitors poll
+this ONE url instead of poking model ports. It ships in this repo's `gateway.ts` — just
+re-pull it and restart `llm-gateway`.
+
+**`/embed/v1`** — needs a small embeddings model (bge-m3, same as the reference stack),
+served by the llama-server binary already built on the box:
+
+```bash
+~/surya-venv/bin/hf download gpustack/bge-m3-GGUF bge-m3-FP16.gguf --local-dir ~/models/bge-m3
+```
+
+`~/.config/systemd/user/llama-embed.service`:
+
+```ini
+[Unit]
+Description=bge-m3 embeddings (CUDA - DGX Spark)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=CUDA_VISIBLE_DEVICES=0
+ExecStart=%h/llama-cpp-turboquant/build/bin/llama-server \
+  -m %h/models/bge-m3/bge-m3-FP16.gguf \
+  --embedding --pooling cls -ngl 99 -c 8192 \
+  --host 127.0.0.1 --port 8091
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+systemctl --user daemon-reload && systemctl --user enable --now llama-embed
+curl -s localhost:8091/health
+# then re-pull gateway.ts (adds the /embed route + /upstreams/health) and restart:
+curl -fsSL https://raw.githubusercontent.com/sypherin/neo-spark-restore-kit/master/gateway.ts -o ~/llm-gateway/gateway.ts
+systemctl --user restart llm-gateway
+```
+
+Note: add `llama-embed:8091:/health` to the CHECKS line in `~/bin/spark-stack-guard.sh`
+so the guard watches it too. bge-m3 FP16 is ~1.2 GB — negligible next to the LLMs.
