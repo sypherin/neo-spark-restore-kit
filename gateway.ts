@@ -23,6 +23,9 @@ Bun.serve({ port: PORT, hostname: "127.0.0.1", async fetch(req) {
   if (body && body.byteLength > MAX_BODY) return new Response("too large", { status: 413 });
   const r = ROUTES.find(x => url.pathname.startsWith(x.prefix))!;
   const fwd = r.target + url.pathname.slice(r.strip.length) + url.search;
-  return fetch(fwd, { method: req.method, headers: { "content-type": "application/json" }, body });
+  // Pass the caller's headers through (minus host/auth) — hardcoding content-type
+  // application/json here destroys the multipart boundary on /layout uploads (422s).
+  const h = new Headers(req.headers); h.delete("host"); h.delete("authorization");
+  return fetch(fwd, { method: req.method, headers: h, body });
 }});
 console.log(`gateway :${PORT} → Gemma :8001 · Qwen-VL :8080 · Surya :8090`);
